@@ -28,7 +28,8 @@ def main():
         # WALCL: 연준 총자산, WTREGEN: TGA, RRPONTSYD: 역레포, DGS10: 10년물 국채금리, FEDTARMD: 점도표 중간값
         logging.info("거시경제 데이터 수집 중...")
         # 참고: FEDTARMD는 연간 데이터이므로 ffill로 일간 변환됨
-        fred_data = loader.get_fred_data()
+        series_ids = ['WALCL', 'WTREGEN', 'RRPONTSYD', 'DGS10', 'FEDTARMD']
+        fred_data = loader.get_fred_data(series_ids)
 
         # 주식 데이터 수집
         logging.info(f"주식 데이터 수집 중 ({args.ticker})...")
@@ -42,7 +43,7 @@ def main():
 
         # 데이터 병합 (Inner Join으로 날짜 교집합만 사용)
         # 주가(종가) + 순유동성 + 10년물 금리 + 점도표
-        merged_df = stock_data[['Close']].join(net_liquidity).join(fred_data]).dropna()
+        merged_df = stock_data[['Close']].join(net_liquidity).dropna()
         logging.info(f"데이터 병합 완료. Shape: {merged_df.shape}")
 
         if len(merged_df) < 200:
@@ -64,7 +65,8 @@ def main():
         logging.info(f"학습 데이터: {X_train.shape}, 테스트 데이터: {X_test.shape}")
 
         # 3. 모델 학습 단계
-        n_features = X_train.shape[1]
+        # X shape: (samples, n_past, features) 이므로 features는 index 2입니다.
+        n_features = X_train.shape[2]
         forecaster = LSTMForecaster(n_past, n_future, n_features)
 
         history = forecaster.train(X_train, y_train, epochs=args.epochs)
@@ -96,7 +98,7 @@ def main():
         std_dev = np.std(residuals)
 
         # 1000번의 시뮬레이션 수행 (Random Walk Noise 추가)
-        simulations =
+        simulations = []
         for _ in range(1000):
             # 시간에 따라 불확실성이 증가하도록 노이즈 스케일링 (Square Root of Time Rule)
             noise = np.random.normal(0, std_dev, size=n_future) * np.sqrt(np.arange(1, n_future + 1))

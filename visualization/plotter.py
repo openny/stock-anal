@@ -26,7 +26,7 @@ class Visualizer:
 
         # 예측값의 백분위수 계산 (5%, 20%, 50%, 80%, 95%)
         # 이는 예측 분포의 신뢰 구간을 형성함
-        percentiles =
+        percentiles = [5, 20, 50, 80, 95]
         try:
             forecast_percentiles = np.percentile(forecast_matrix, percentiles, axis=0)
         except Exception as e:

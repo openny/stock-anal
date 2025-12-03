@@ -25,7 +25,7 @@ class DataProcessor:
         Returns:
             pd.DataFrame: Net_Liquidity 컬럼이 포함된 데이터프레임
         """
-        required_cols =
+        required_cols = ['WALCL', 'WTREGEN', 'RRPONTSYD']
 
         # 필수 컬럼 존재 여부 확인
         missing_cols = [col for col in required_cols if col not in fred_df.columns]
@@ -44,44 +44,48 @@ class DataProcessor:
         # 실제 데이터 값을 확인해보고 단위를 맞춰야 하지만, 통상적으로 FRED API는 메타데이터 단위를 따름.
         # RRPONTSYD가 Billions라면 1000을 곱해야 Millions가 됨.
 
-        df['Net_Liquidity'] = df - (df * 1000 if df.mean() < df.mean() / 100 else df) - (df * 1000)
-
-        # 단순화를 위해 모든 단위가 맞다고 가정하고 직접 차감하는 로직 사용 (데이터 검증 후 사용 권장)
-        # 실제로는 데이터의 scale을 확인하는 로직이 추가되어야 함.
-        df = df - df - df
+        df['Net_Liquidity'] = df['WALCL'] - df['WTREGEN'] - (df['RRPONTSYD'] * 1000)
 
         logging.info("순유동성 지표 계산 완료")
-        return df]
+        return df
 
-        def prepare_lstm_dataset(self, data: pd.DataFrame, target_col: str, n_past: int, n_future: int):
-            """
-            LSTM 학습을 위한 시계열 데이터셋 생성 (Sliding Window 방식).
+    def prepare_lstm_dataset(self, data: pd.DataFrame, target_col: str, n_past: int, n_future: int):
+        """
+        LSTM 학습을 위한 시계열 데이터셋 생성 (Sliding Window 방식).
 
-            Args:
-                data (pd.DataFrame): 전체 시계열 데이터
-                target_col (str): 예측 대상 컬럼명 (예: 'Close')
-                n_past (int): 과거 참조 기간 (Input Sequence Length)
-                n_future (int): 미래 예측 기간 (Output Sequence Length)
+        Args:
+            data (pd.DataFrame): 전체 시계열 데이터
+            target_col (str): 예측 대상 컬럼명 (예: 'Close')
+            n_past (int): 과거 참조 기간 (Input Sequence Length)
+            n_future (int): 미래 예측 기간 (Output Sequence Length)
 
-            Returns:
-                X (np.array): 입력 데이터 (samples, n_past, features)
-                y (np.array): 타겟 데이터 (samples, n_future, 1)
-                scaler (MinMaxScaler): 역변환을 위한 스케일러 객체
-            """
-            # 데이터 스케일링
-            if not self.scaler_fitted:
-                scaled_data = self.scaler.fit_transform(data)
-                self.scaler_fitted = True
-            else:
-                scaled_data = self.scaler.transform(data)
+        Returns:
+            X (np.array): 입력 데이터 (samples, n_past, features)
+            y (np.array): 타겟 데이터 (samples, n_future, 1)
+            scaler (MinMaxScaler): 역변환을 위한 스케일러 객체
+        """
+        # 데이터 스케일링
+        if not self.scaler_fitted:
+            scaled_data = self.scaler.fit_transform(data)
+            self.scaler_fitted = True
+        else:
+            scaled_data = self.scaler.transform(data)
 
-            target_idx = data.columns.get_loc(target_col)
+        target_idx = data.columns.get_loc(target_col)
 
-            X, y =,
+        X, y = [], []
 
-            # 슬라이딩 윈도우 적용
-            for i in range(n_past, len(scaled_data) - n_future + 1):
-                X.append(scaled_data[i - n_past:i, :])  # 과거 n_past 만큼의 모든 피처
-                y.append(scaled_data[i:i + n_future, target_idx])  # 미래 n_future 만큼의 타겟 변수
+        # 슬라이딩 윈도우 적용
+        for i in range(n_past, len(scaled_data) - n_future + 1):
+            X.append(scaled_data[i - n_past:i, :])  # 과거 n_past 만큼의 모든 피처
+            y.append(scaled_data[i:i + n_future, target_idx])  # 미래 n_future 만큼의 타겟 변수
 
-            return np.array(X), np.array(y), self.scaler
+        X = np.array(X)
+        y = np.array(y)
+
+        # 타겟 데이터 차원 확장: (Samples, Steps) -> (Samples, Steps, 1)
+        # main.py에서 y_test[:, :, 0]으로 접근하기 위해 3차원으로 맞춤
+        if y.ndim == 2:
+            y = np.expand_dims(y, axis=-1)
+
+        return X, y, self.scaler

@@ -1,7 +1,12 @@
 #!/bin/bash
 
 # 색상 정의
-GREEN='\033; then
+
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
+# 1. 가상환경 생성 확인
+if [ ! -d "venv" ]; then
     echo "가상환경(venv)을 생성합니다..."
     python3 -m venv venv
 else
