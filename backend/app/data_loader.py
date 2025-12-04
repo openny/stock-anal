@@ -2,8 +2,7 @@ import yfinance as yf
 import pandas_datareader.data as web
 import pandas as pd
 import datetime
-import requests
-from concurrent.futures import ThreadPoolExecutor
+from pandas_datareader.fred import FredReader
 
 
 class DataLoader:
@@ -29,27 +28,44 @@ class DataLoader:
     def get_macro_data(self):
         """FRED에서 거시경제 지표 수집 (D1)"""
         try:
-            # M2, 10년-2년 금리차, 하이일드 스프레드 등
+            fred_api_key = os.getenv("FRED_API_KEY")
+            if not fred_api_key:
+                print("[Macro] WARN: FRED_API_KEY not set; returning empty macro_df")
+                return pd.DataFrame()
+
+            # FRED API Key 설정
+            FredReader.api_key = fred_api_key
+
+            # 주요 지표들
             indicators = {
-                'M2SL': 'M2',
-                'T10Y2Y': 'YieldCurve',
-                'WALCL': 'FedAssets',  # 연준 총자산 (유동성 대리지표)
-                'WTREGEN': 'TGA',  # 재무부 계정
-                'RRPONTSYD': 'RRP'  # 역레포
+                "M2SL": "M2",               # 통화량
+                "T10Y2Y": "YieldSpread",    # 10Y-2Y 금리차
+                "WALCL": "FedAssets",       # 연준 대차대조표
+                "WTREGEN": "TGA",           # 재무부 일반계정
+                "RRPONTSYD": "RRP",         # 역레포 잔액
+                "UNRATE": "Unemployment",   # 실업률
+                "BAMLH0A0HYM2": "HYSpread", # 하이일드 스프레드
             }
+
             end = datetime.datetime.now()
             start = end - datetime.timedelta(days=365)
 
-            df = web.DataReader(list(indicators.keys()), 'fred', start, end)
+            df = web.DataReader(list(indicators.keys()), "fred", start, end)
             df.rename(columns=indicators, inplace=True)
 
             # Net Liquidity = FedAssets - TGA - RRP
-            df['NetLiquidity'] = df['FedAssets'].ffill() - \
-                                 df['TGA'].ffill() - \
-                                 df['RRP'].ffill()
+            df["NetLiquidity"] = (
+                df["FedAssets"].ffill()
+                - df["TGA"].ffill()
+                - df["RRP"].ffill()
+            )
+
+            print(f"[Macro] Loaded macro_df with columns={list(df.columns)}", flush=True)
             return df
+
         except Exception as e:
-            print(f"Macro data error: {e}")
+            print(f"[Macro data error] {e}")
+            return pd.DataFrame()
 
     def get_batch_stock_data(self, tickers):
         """yfinance로 대량의 주가 데이터 다운로드"""

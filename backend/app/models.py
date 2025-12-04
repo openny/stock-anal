@@ -11,6 +11,7 @@ class StockScore(BaseModel):
     d3_quant: float
     d4_timing: float
     sector: str
+    macro_regime: str
 
 class ForecastData(BaseModel):
     dates: List[str]

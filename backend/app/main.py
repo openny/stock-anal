@@ -1,4 +1,4 @@
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import asyncio
@@ -96,6 +96,39 @@ def get_forecast(ticker: str):
         "lower_bound": lower,
         "upper_bound": upper
     }
+@app.get("/api/analyze_single/{ticker}", response_model=StockScore)
+def analyze_single(ticker: str):
+    """
+    단일 티커에 대해 4D Fusion 점수와 매크로 레짐 등을 바로 계산해서 반환
+    """
+    print(f"[analyze_single] ticker={ticker}", flush=True)
+
+    loader = DataLoader()
+
+    # 1) 매크로 데이터 로드 + FusionEngine 생성
+    macro_df = loader.get_macro_data()
+    engine = FusionEngine(macro_df)
+
+    # 2) 가격 데이터 로드
+    data = loader.get_batch_stock_data([ticker])
+
+    # MultiIndex → 단일 DF 추출 (이미 main.py 어딘가에 있는 helper 재사용)
+    from .main import extract_ticker_df  # 같은 파일이면 import 말고 그냥 호출만
+
+    df = extract_ticker_df(data, ticker)
+    if df is None or df.empty:
+        raise HTTPException(status_code=400, detail=f"{ticker} price data not found")
+
+    # 3) 펀더멘털 데이터 로드
+    info = loader.get_fundamentals(ticker)
+
+    # 4) 점수 계산
+    score_obj = engine.calculate_scores(ticker, df, info)
+    if not score_obj:
+        raise HTTPException(status_code=400, detail=f"{ticker} score calculation failed")
+
+    print(f"[analyze_single] done: {ticker}, fusion={score_obj['fusion_score']}", flush=True)
+    return score_obj
 
 def extract_ticker_df(data: pd.DataFrame, ticker: str) -> pd.DataFrame | None:
     """
@@ -162,7 +195,7 @@ def run_full_analysis(top_n: int):
 
         # 2. Get Tickers
         tickers = loader.get_sp500_tickers()
-        # tickers = tickers[:30]  # 샘플링
+        tickers = tickers[:10]  # 샘플링
         total = len(tickers) or 1
         print(f"[run_full_analysis] tickers={len(tickers)}", flush=True)
 

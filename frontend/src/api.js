@@ -35,3 +35,12 @@ export async function getForecast(ticker) {
   if (!ticker) throw new Error("ticker is required");
   return request(`/api/forecast/${encodeURIComponent(ticker)}`);
 }
+
+export async function analyzeSingle(ticker) {
+  const res = await fetch(`${BASE_URL}/api/analyze_single/${ticker}`);
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(msg || "Single ticker analysis failed");
+  }
+  return res.json();
+}
