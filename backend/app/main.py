@@ -18,7 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 전역 상태 저장소 (실무에선 Redis 권장)
+# 전역 상태 저장소
 analysis_state = {
     "status": "IDLE",
     "progress": 0,
