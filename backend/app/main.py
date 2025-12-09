@@ -195,6 +195,7 @@ def run_full_analysis(top_n: int):
 
         # 2. Get Tickers
         tickers = loader.get_sp500_tickers()
+        # 시연시 너무 시간이 오래 걸리니 10개만
         tickers = tickers[:10]  # 샘플링
         total = len(tickers) or 1
         print(f"[run_full_analysis] tickers={len(tickers)}", flush=True)

@@ -28,7 +28,7 @@ class DataLoader:
     def get_macro_data(self):
         """FRED에서 거시경제 지표 수집 (D1)"""
         try:
-            fred_api_key = os.getenv("FRED_API_KEY")
+            fred_api_key = "7e6512bca7c887f19ee125fc2ca01f95"
             if not fred_api_key:
                 print("[Macro] WARN: FRED_API_KEY not set; returning empty macro_df")
                 return pd.DataFrame()
